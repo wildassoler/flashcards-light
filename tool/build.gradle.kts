@@ -57,10 +57,11 @@ kotlin {
     }
 }
 
-// --- Fix: Anki backend pulls full protobuf-java, something else in the SDK pulls protobuf-javalite.
-// Both bring identical classes, so we force resolution to protobuf-java (a superset of javalite).
+// --- Fix: Anki backend compiles against protobuf-javalite specifically (GeneratedMessageLite, etc).
+// Excluding the full protobuf-java instead avoids the duplicate-class conflict while keeping
+// the classes the Anki backend actually needs.
 configurations.all {
-    exclude(group = "com.google.protobuf", module = "protobuf-javalite")
+    exclude(group = "com.google.protobuf", module = "protobuf-java")
 }
 
 dependencies {
