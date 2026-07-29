@@ -12,7 +12,6 @@ enum class CardRating { HARD, GOOD, VERY_GOOD }
 
 class AnkiRepository(private val backend: Backend) {
 
-    private var cachedDeckId: Long? = null
     private var cachedNotetypeId: Long? = null
 
     /** Ensures a "Basic" (front/back) notetype exists, returns its id. Creates it on first run only. */
@@ -32,14 +31,6 @@ class AnkiRepository(private val backend: Backend) {
         return opChanges.id
     }
 
-    /** Returns the id of the auto-created "Default" deck. */
-    private fun ensureDeckId(): Long {
-        cachedDeckId?.let { return it }
-        val id = backend.getDeckIdByName("Default")
-        cachedDeckId = id
-        return id
-    }
-
     /** Lists all existing decks as (id, name) pairs. */
     fun listDecks(): List<Pair<Long, String>> {
         return backend.getDeckNames(skipEmptyDefault = true, includeFiltered = false)
@@ -54,10 +45,9 @@ class AnkiRepository(private val backend: Backend) {
         return opChanges.id
     }
 
-    /** Adds a new flashcard from the user's front/back text. */
-    fun addCard(front: String, back: String) {
+    /** Adds a new flashcard from the user's front/back text, into the given deck. */
+    fun addCard(front: String, back: String, deckId: Long) {
         val notetypeId = ensureNotetypeId()
-        val deckId = ensureDeckId()
 
         val blankNote: Note = backend.newNote(notetypeId)
         val note = blankNote.toBuilder()
@@ -68,7 +58,7 @@ class AnkiRepository(private val backend: Backend) {
         backend.addNote(note, deckId)
     }
 
-    /** Fetches the next due card, or null if there's nothing to review. */
+    /** Fetches the next due card (across all decks), or null if there's nothing to review. */
     fun getNextCard(): QueuedCards.QueuedCard? {
         val result = backend.getQueuedCards(1, false)
         return result.cardsList.firstOrNull()

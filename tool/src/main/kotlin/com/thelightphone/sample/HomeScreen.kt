@@ -149,7 +149,9 @@ class HomeScreen(sealedActivity: SealedLightActivity) : LightScreen<Unit, HomeSc
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .lightClickable {
-                                                // TODO: navigate into this deck (add/review cards)
+                                                navigateTo<Unit>(screenFactory = { sealedActivity ->
+                                                    DeckScreen(sealedActivity, id, name)
+                                                })
                                             }
                                             .padding(vertical = 12.dp),
                                     )
