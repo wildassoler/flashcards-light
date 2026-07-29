@@ -11,6 +11,13 @@ import java.io.File
  */
 object AnkiBackendManager {
     private var backend: Backend? = null
+    private var libraryLoaded = false
+
+    private fun ensureLibraryLoaded() {
+        if (libraryLoaded) return
+        System.loadLibrary("rsdroid")
+        libraryLoaded = true
+    }
 
     /**
      * Returns the open Backend, creating and opening the collection
@@ -19,6 +26,8 @@ object AnkiBackendManager {
     fun getBackend(collectionDir: File): Backend {
         val existing = backend
         if (existing != null && existing.isOpen()) return existing
+
+        ensureLibraryLoaded()
 
         val newBackend = BackendFactory.getBackend(listOf("en"))
         val collectionPath = File(collectionDir, "collection.anki2").absolutePath

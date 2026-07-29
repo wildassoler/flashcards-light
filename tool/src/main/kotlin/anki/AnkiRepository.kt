@@ -5,6 +5,7 @@ import anki.notetypes.StockNotetype
 import anki.scheduler.CardAnswer
 import anki.scheduler.QueuedCards
 import anki.scheduler.SchedulingState
+import com.google.protobuf.ByteString
 import net.ankiweb.rsdroid.Backend
 
 /** The 3 rating buttons this app exposes, mapped to Anki's real ratings. */
@@ -38,6 +39,19 @@ class AnkiRepository(private val backend: Backend) {
         val id = backend.getDeckIdByName("Default")
         cachedDeckId = id
         return id
+    }
+
+    /** Lists all existing decks as (id, name) pairs. */
+    fun listDecks(): List<Pair<Long, String>> {
+        return backend.getDeckNames(skipEmptyDefault = true, includeFiltered = false)
+            .map { it.id to it.name }
+    }
+
+    /** Creates a new deck with the given name and returns its id. */
+    fun createDeck(name: String): Long {
+        val json = ByteString.copyFromUtf8("\"$name\"")
+        val opChanges = backend.addDeckLegacy(json)
+        return opChanges.id
     }
 
     /** Adds a new flashcard from the user's front/back text. */
