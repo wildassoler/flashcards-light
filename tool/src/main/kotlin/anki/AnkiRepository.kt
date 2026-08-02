@@ -45,6 +45,34 @@ class AnkiRepository(private val backend: Backend) {
         return opChanges.id
     }
 
+    /** Counts how many cards exist in the given deck. */
+    fun countCardsInDeck(deckName: String): Int {
+        val noOrder = anki.search.SortOrder.newBuilder()
+            .setNone(anki.generic.Empty.getDefaultInstance())
+            .build()
+        return backend.searchCards("deck:\"$deckName\"", noOrder).size
+    }
+
+    /** Lists all cards in a deck as (noteId, front, back) triples. One entry per note, even if it has multiple cards. */
+    fun listCardsInDeck(deckName: String): List<Triple<Long, String, String>> {
+        val noOrder = anki.search.SortOrder.newBuilder()
+            .setNone(anki.generic.Empty.getDefaultInstance())
+            .build()
+        val cardIds = backend.searchCards("deck:\"$deckName\"", noOrder)
+        val seenNoteIds = mutableSetOf<Long>()
+        val result = mutableListOf<Triple<Long, String, String>>()
+        for (cardId in cardIds) {
+            val card = backend.getCard(cardId)
+            if (seenNoteIds.add(card.noteId)) {
+                val note = backend.getNote(card.noteId)
+                val front = note.fieldsList.getOrElse(0) { "" }
+                val back = note.fieldsList.getOrElse(1) { "" }
+                result.add(Triple(card.noteId, front, back))
+            }
+        }
+        return result
+    }
+
     /** Adds a new flashcard from the user's front/back text, into the given deck. */
     fun addCard(front: String, back: String, deckId: Long) {
         val notetypeId = ensureNotetypeId()
@@ -56,6 +84,21 @@ class AnkiRepository(private val backend: Backend) {
             .build()
 
         backend.addNote(note, deckId)
+    }
+
+    /** Updates an existing note's front/back text. */
+    fun updateCard(noteId: Long, front: String, back: String) {
+        val note = backend.getNote(noteId)
+        val updated = note.toBuilder()
+            .setFields(0, front)
+            .setFields(1, back)
+            .build()
+        backend.updateNotes(listOf(updated), false)
+    }
+
+    /** Deletes a note (and its card(s)) entirely. */
+    fun deleteCard(noteId: Long) {
+        backend.removeNotes(listOf(noteId), emptyList())
     }
 
     /** Fetches the next due card (across all decks), or null if there's nothing to review. */

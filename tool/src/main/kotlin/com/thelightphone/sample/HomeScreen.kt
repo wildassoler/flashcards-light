@@ -42,7 +42,7 @@ import kotlinx.coroutines.withContext
 
 data class DecksUiState(
     val isLoading: Boolean = true,
-    val decks: List<Pair<Long, String>> = emptyList(),
+    val decks: List<Triple<Long, String, Int>> = emptyList(),
 )
 
 class HomeScreenViewModel(filesDir: File) : LightViewModel<Unit>() {
@@ -61,7 +61,11 @@ class HomeScreenViewModel(filesDir: File) : LightViewModel<Unit>() {
     fun loadDecks() {
         viewModelScope.launch {
             uiState.value = uiState.value.copy(isLoading = true)
-            val decks = withContext(Dispatchers.IO) { repository.listDecks() }
+            val decks = withContext(Dispatchers.IO) {
+                repository.listDecks().map { (id, name) ->
+                    Triple(id, name, repository.countCardsInDeck(name))
+                }
+            }
             uiState.value = DecksUiState(isLoading = false, decks = decks)
         }
     }
@@ -142,9 +146,9 @@ class HomeScreen(sealedActivity: SealedLightActivity) : LightScreen<Unit, HomeSc
                         }
                         else -> {
                             LazyColumn(modifier = Modifier.padding(bottom = 24.dp)) {
-                                items(state.decks) { (id, name) ->
+                                items(state.decks) { (id, name, count) ->
                                     LightText(
-                                        text = name,
+                                        text = "$name ($count)",
                                         variant = LightTextVariant.Copy,
                                         modifier = Modifier
                                             .fillMaxWidth()

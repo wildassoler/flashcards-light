@@ -18,6 +18,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import anki.AnkiBackendManager
@@ -28,6 +31,8 @@ import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
+import com.thelightphone.sdk.ui.LightIcon
+import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.LightText
 import com.thelightphone.sdk.ui.LightTextVariant
 import com.thelightphone.sdk.ui.LightTheme
@@ -66,9 +71,6 @@ class DeckScreenViewModel(filesDir: File, private val deckId: Long) : LightViewM
     fun loadNextCard() {
         viewModelScope.launch {
             uiState.value = uiState.value.copy(isLoading = true, showAnswer = false)
-            // Note: this currently pulls the next due card across ALL decks,
-            // not just this one — Anki's GetQueuedCards has no per-deck filter
-            // in the API surface we've wired up yet.
             val queuedCard = withContext(Dispatchers.IO) { repository.getNextCard() }
             currentQueuedCard = queuedCard
 
@@ -122,6 +124,18 @@ class DeckScreen(
         var showAddForm by remember { mutableStateOf(false) }
         var frontInput by remember { mutableStateOf("") }
         var backInput by remember { mutableStateOf("") }
+        val backFieldFocus = remember { FocusRequester() }
+        val keyboardController = LocalSoftwareKeyboardController.current
+
+        fun submitAddForm() {
+            if (frontInput.isNotBlank() && backInput.isNotBlank()) {
+                viewModel.addCard(frontInput, backInput)
+                frontInput = ""
+                backInput = ""
+                showAddForm = false
+                keyboardController?.hide()
+            }
+        }
 
         LightTheme(colors = themeColors) {
             Column(
@@ -130,10 +144,8 @@ class DeckScreen(
                     .background(LightThemeTokens.colors.background)
                     .padding(32.dp)
             ) {
-                LightText(
-                    text = "‹ Back",
-                    variant = LightTextVariant.Copy,
-                    lighten = true,
+                LightIcon(
+                    icon = LightIcons.BACK,
                     modifier = Modifier
                         .padding(bottom = 16.dp)
                         .lightClickable { goBack() },
@@ -147,26 +159,37 @@ class DeckScreen(
                 if (showAddForm) {
                     OutlinedTextField(
                         value = frontInput,
-                        onValueChange = { frontInput = it },
+                        onValueChange = { newValue ->
+                            if (newValue.contains("\n")) {
+                                frontInput = newValue.replace("\n", "")
+                                backFieldFocus.requestFocus()
+                            } else {
+                                frontInput = newValue
+                            }
+                        },
                         label = { Text("Front") },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = backInput,
-                        onValueChange = { backInput = it },
+                        onValueChange = { newValue ->
+                            if (newValue.contains("\n")) {
+                                backInput = newValue.replace("\n", "")
+                                submitAddForm()
+                            } else {
+                                backInput = newValue
+                            }
+                        },
                         label = { Text("Back") },
-                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(backFieldFocus),
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = {
-                        if (frontInput.isNotBlank() && backInput.isNotBlank()) {
-                            viewModel.addCard(frontInput, backInput)
-                            frontInput = ""
-                            backInput = ""
-                            showAddForm = false
-                        }
-                    }) {
+                    Button(onClick = { submitAddForm() }) {
                         Text("Save card")
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -233,12 +256,23 @@ class DeckScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                     LightText(
                         text = "+ Add card",
                         variant = LightTextVariant.Copy,
                         lighten = true,
                         modifier = Modifier.lightClickable { showAddForm = true },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LightText(
+                        text = "Edit cards",
+                        variant = LightTextVariant.Copy,
+                        lighten = true,
+                        modifier = Modifier.lightClickable {
+                            navigateTo<Unit>(screenFactory = { sealedActivity ->
+                                CardsScreen(sealedActivity, deckName)
+                            })
+                        },
                     )
                 }
             }
