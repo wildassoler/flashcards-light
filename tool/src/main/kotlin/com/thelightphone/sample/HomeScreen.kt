@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -19,6 +21,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import anki.AnkiBackendManager
@@ -93,6 +97,16 @@ class HomeScreen(sealedActivity: SealedLightActivity) : LightScreen<Unit, HomeSc
         val themeColors by LightThemeController.colors.collectAsState()
         var showAddDeckForm by remember { mutableStateOf(false) }
         var deckNameInput by remember { mutableStateOf("") }
+        val keyboardController = LocalSoftwareKeyboardController.current
+
+        fun submitAddDeckForm() {
+            if (deckNameInput.isNotBlank()) {
+                viewModel.createDeck(deckNameInput)
+                deckNameInput = ""
+                showAddDeckForm = false
+                keyboardController?.hide()
+            }
+        }
 
         LightTheme(colors = themeColors) {
             Column(
@@ -112,16 +126,13 @@ class HomeScreen(sealedActivity: SealedLightActivity) : LightScreen<Unit, HomeSc
                         value = deckNameInput,
                         onValueChange = { deckNameInput = it },
                         label = { Text("Deck name") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { submitAddDeckForm() }),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = {
-                        if (deckNameInput.isNotBlank()) {
-                            viewModel.createDeck(deckNameInput)
-                            deckNameInput = ""
-                            showAddDeckForm = false
-                        }
-                    }) {
+                    Button(onClick = { submitAddDeckForm() }) {
                         Text("Save deck")
                     }
                     Spacer(modifier = Modifier.height(8.dp))
