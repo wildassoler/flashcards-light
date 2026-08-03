@@ -2,7 +2,6 @@ package com.thelightphone.sample
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,8 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import anki.AnkiBackendManager
 import anki.AnkiRepository
-import anki.CardRating
-import anki.scheduler.QueuedCards
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
@@ -46,62 +43,36 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-data class DeckReviewUiState(
+data class DeckMenuUiState(
     val isLoading: Boolean = true,
-    val hasCardDue: Boolean = false,
-    val front: String = "",
-    val back: String = "",
-    val showAnswer: Boolean = false,
+    val reviewCount: Int = 0,
 )
 
-class DeckScreenViewModel(filesDir: File, private val deckId: Long) : LightViewModel<Unit>() {
+class DeckScreenViewModel(filesDir: File, private val deckId: Long, private val deckName: String) : LightViewModel<Unit>() {
 
     private val repository: AnkiRepository by lazy {
         AnkiRepository(AnkiBackendManager.getBackend(filesDir))
     }
 
-    val uiState = MutableStateFlow(DeckReviewUiState())
-
-    private var currentQueuedCard: QueuedCards.QueuedCard? = null
+    val uiState = MutableStateFlow(DeckMenuUiState())
 
     override fun onScreenShow(screen: SimpleLightScreen<Unit>) {
         super.onScreenShow(screen)
-        loadNextCard()
+        loadStatus()
     }
 
-    fun loadNextCard() {
+    fun loadStatus() {
         viewModelScope.launch {
-            uiState.value = uiState.value.copy(isLoading = true, showAnswer = false)
-            val queuedCard = withContext(Dispatchers.IO) { repository.getNextCard() }
-            currentQueuedCard = queuedCard
-
-            uiState.value = if (queuedCard == null) {
-                DeckReviewUiState(isLoading = false, hasCardDue = false)
-            } else {
-                val (front, back) = withContext(Dispatchers.IO) { repository.getCardFields(queuedCard) }
-                DeckReviewUiState(isLoading = false, hasCardDue = true, front = front, back = back)
-            }
-        }
-    }
-
-    fun revealAnswer() {
-        uiState.value = uiState.value.copy(showAnswer = true)
-    }
-
-    fun rate(rating: CardRating) {
-        val queuedCard = currentQueuedCard ?: return
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) { repository.answerCard(queuedCard, rating) }
-            loadNextCard()
+            uiState.value = uiState.value.copy(isLoading = true)
+            val count = withContext(Dispatchers.IO) { repository.countReviewableInDeck(deckName) }
+            uiState.value = DeckMenuUiState(isLoading = false, reviewCount = count)
         }
     }
 
     fun addCard(front: String, back: String) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repository.addCard(front, back, deckId) }
-            if (!uiState.value.hasCardDue) {
-                loadNextCard()
-            }
+            loadStatus()
         }
     }
 }
@@ -115,7 +86,7 @@ class DeckScreen(
         get() = DeckScreenViewModel::class.java
 
     override fun createViewModel(): DeckScreenViewModel {
-        return DeckScreenViewModel(lightContext.filesDir, deckId)
+        return DeckScreenViewModel(lightContext.filesDir, deckId, deckName)
     }
 
     @Composable
@@ -192,7 +163,20 @@ class DeckScreen(
                         state.isLoading -> {
                             LightText(text = "Loading...", variant = LightTextVariant.Copy, lighten = true)
                         }
-                        !state.hasCardDue -> {
+                        state.reviewCount > 0 -> {
+                            LightText(
+                                text = "${state.reviewCount} to review",
+                                variant = LightTextVariant.Copy,
+                                modifier = Modifier
+                                    .padding(bottom = 24.dp)
+                                    .lightClickable {
+                                        navigateTo<Unit>(screenFactory = { sealedActivity ->
+                                            ReviewScreen(sealedActivity, deckName)
+                                        })
+                                    },
+                            )
+                        }
+                        else -> {
                             LightText(
                                 text = "Nothing to review right now.",
                                 variant = LightTextVariant.Copy,
@@ -200,51 +184,8 @@ class DeckScreen(
                                 modifier = Modifier.padding(bottom = 24.dp),
                             )
                         }
-                        else -> {
-                            LightText(
-                                text = state.front,
-                                variant = LightTextVariant.Copy,
-                                modifier = Modifier.padding(bottom = 16.dp),
-                            )
-                            if (state.showAnswer) {
-                                LightText(
-                                    text = state.back,
-                                    variant = LightTextVariant.Copy,
-                                    lighten = true,
-                                    modifier = Modifier.padding(bottom = 24.dp),
-                                )
-                                Row {
-                                    LightText(
-                                        text = "Hard",
-                                        variant = LightTextVariant.Copy,
-                                        modifier = Modifier
-                                            .padding(end = 16.dp)
-                                            .lightClickable { viewModel.rate(CardRating.HARD) },
-                                    )
-                                    LightText(
-                                        text = "Good",
-                                        variant = LightTextVariant.Copy,
-                                        modifier = Modifier
-                                            .padding(end = 16.dp)
-                                            .lightClickable { viewModel.rate(CardRating.GOOD) },
-                                    )
-                                    LightText(
-                                        text = "Very Good",
-                                        variant = LightTextVariant.Copy,
-                                        modifier = Modifier.lightClickable { viewModel.rate(CardRating.VERY_GOOD) },
-                                    )
-                                }
-                            } else {
-                                LightText(
-                                    text = "Show answer",
-                                    variant = LightTextVariant.Copy,
-                                    modifier = Modifier.lightClickable { viewModel.revealAnswer() },
-                                )
-                            }
-                        }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
                     LightText(
                         text = "+ Add card",
                         variant = LightTextVariant.Copy,

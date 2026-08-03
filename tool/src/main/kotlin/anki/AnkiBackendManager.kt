@@ -33,6 +33,11 @@ object AnkiBackendManager {
         val collectionPath = File(collectionDir, "collection.anki2").absolutePath
         newBackend.openCollection(collectionPath)
 
+        // New collections may default to the legacy scheduler, where
+        // GetQueuedCards/AnswerCard (v3 scheduler APIs) return nothing.
+        // This is a no-op if already on the modern scheduler.
+        newBackend.upgradeScheduler()
+
         backend = newBackend
         return newBackend
     }

@@ -3,41 +3,42 @@ package anki
 import anki.notes.Note
 import anki.notetypes.StockNotetype
 import anki.scheduler.CardAnswer
-import anki.scheduler.QueuedCards
-import anki.scheduler.SchedulingState
+import anki.scheduler.SchedulingStates
 import net.ankiweb.rsdroid.Backend
 
 /** The 3 rating buttons this app exposes, mapped to Anki's real ratings. */
 enum class CardRating { HARD, GOOD, VERY_GOOD }
 
+/** A card ready to review: its content plus the scheduling states needed to answer it. */
+data class ReviewCard(
+    val cardId: Long,
+    val front: String,
+    val back: String,
+    val states: SchedulingStates,
+)
+
 class AnkiRepository(private val backend: Backend) {
 
     private var cachedNotetypeId: Long? = null
 
-    /** Ensures a "Basic" (front/back) notetype exists, returns its id. Creates it on first run only. */
     private fun ensureNotetypeId(): Long {
         cachedNotetypeId?.let { return it }
-
         val existingId = backend.getNotetypeIdByName("Basic")
         if (existingId != 0L) {
             cachedNotetypeId = existingId
             return existingId
         }
-
-        // First run: fetch the stock "Basic" notetype JSON and register it.
         val notetypeJson = backend.getStockNotetypeLegacy(StockNotetype.Kind.KIND_BASIC)
         val opChanges = backend.addNotetypeLegacy(notetypeJson)
         cachedNotetypeId = opChanges.id
         return opChanges.id
     }
 
-    /** Lists all existing decks as (id, name) pairs. */
     fun listDecks(): List<Pair<Long, String>> {
         return backend.getDeckNames(skipEmptyDefault = true, includeFiltered = false)
             .map { it.id to it.name }
     }
 
-    /** Creates a new deck with the given name and returns its id. */
     fun createDeck(name: String): Long {
         val blankDeck = backend.newDeck()
         val deck = blankDeck.toBuilder().setName(name.trim()).build()
@@ -45,20 +46,21 @@ class AnkiRepository(private val backend: Backend) {
         return opChanges.id
     }
 
-    /** Counts how many cards exist in the given deck. */
+    private fun noSortOrder() = anki.search.SortOrder.newBuilder()
+        .setNone(anki.generic.Empty.getDefaultInstance())
+        .build()
+
     fun countCardsInDeck(deckName: String): Int {
-        val noOrder = anki.search.SortOrder.newBuilder()
-            .setNone(anki.generic.Empty.getDefaultInstance())
-            .build()
-        return backend.searchCards("deck:\"$deckName\"", noOrder).size
+        return backend.searchCards("deck:\"$deckName\"", noSortOrder()).size
     }
 
-    /** Lists all cards in a deck as (noteId, front, back) triples. One entry per note, even if it has multiple cards. */
+    /** Counts how many cards in this deck are due for review or new (ready to study today). */
+    fun countReviewableInDeck(deckName: String): Int {
+        return backend.searchCards("deck:\"$deckName\" (is:due or is:new)", noSortOrder()).size
+    }
+
     fun listCardsInDeck(deckName: String): List<Triple<Long, String, String>> {
-        val noOrder = anki.search.SortOrder.newBuilder()
-            .setNone(anki.generic.Empty.getDefaultInstance())
-            .build()
-        val cardIds = backend.searchCards("deck:\"$deckName\"", noOrder)
+        val cardIds = backend.searchCards("deck:\"$deckName\"", noSortOrder())
         val seenNoteIds = mutableSetOf<Long>()
         val result = mutableListOf<Triple<Long, String, String>>()
         for (cardId in cardIds) {
@@ -73,20 +75,16 @@ class AnkiRepository(private val backend: Backend) {
         return result
     }
 
-    /** Adds a new flashcard from the user's front/back text, into the given deck. */
     fun addCard(front: String, back: String, deckId: Long) {
         val notetypeId = ensureNotetypeId()
-
         val blankNote: Note = backend.newNote(notetypeId)
         val note = blankNote.toBuilder()
             .setFields(0, front)
             .setFields(1, back)
             .build()
-
         backend.addNote(note, deckId)
     }
 
-    /** Updates an existing note's front/back text. */
     fun updateCard(noteId: Long, front: String, back: String) {
         val note = backend.getNote(noteId)
         val updated = note.toBuilder()
@@ -96,41 +94,38 @@ class AnkiRepository(private val backend: Backend) {
         backend.updateNotes(listOf(updated), false)
     }
 
-    /** Deletes a note (and its card(s)) entirely. */
     fun deleteCard(noteId: Long) {
         backend.removeNotes(listOf(noteId), emptyList())
     }
 
-    /** Fetches the next due card (across all decks), or null if there's nothing to review. */
-    fun getNextCard(): QueuedCards.QueuedCard? {
-        val result = backend.getQueuedCards(1, false)
-        return result.cardsList.firstOrNull()
-    }
-
-    /** Given a queued card, returns its front/back text by looking up the underlying note. */
-    fun getCardFields(queuedCard: QueuedCards.QueuedCard): Pair<String, String> {
-        val note = backend.getNote(queuedCard.card.noteId)
+    /** Fetches the next due/new card WITHIN this specific deck, or null if there's nothing left. */
+    fun getNextCardInDeck(deckName: String): ReviewCard? {
+        val cardIds = backend.searchCards("deck:\"$deckName\" (is:due or is:new)", noSortOrder())
+        val cardId = cardIds.firstOrNull() ?: return null
+        val card = backend.getCard(cardId)
+        val note = backend.getNote(card.noteId)
         val front = note.fieldsList.getOrElse(0) { "" }
         val back = note.fieldsList.getOrElse(1) { "" }
-        return front to back
+        val states = backend.getSchedulingStates(cardId)
+        return ReviewCard(cardId, front, back, states)
     }
 
     /** Submits the user's rating for a card, driving the real spaced-repetition scheduler. */
-    fun answerCard(queuedCard: QueuedCards.QueuedCard, rating: CardRating) {
-        val states = queuedCard.states
-        val newState: SchedulingState = when (rating) {
+    fun answerReviewCard(reviewCard: ReviewCard, rating: CardRating) {
+        val states = reviewCard.states
+        val newState = when (rating) {
             CardRating.HARD -> states.hard
             CardRating.GOOD -> states.good
             CardRating.VERY_GOOD -> states.easy
         }
-        val protoRating: CardAnswer.Rating = when (rating) {
+        val protoRating = when (rating) {
             CardRating.HARD -> CardAnswer.Rating.HARD
             CardRating.GOOD -> CardAnswer.Rating.GOOD
             CardRating.VERY_GOOD -> CardAnswer.Rating.EASY
         }
 
         val answer = CardAnswer.newBuilder()
-            .setCardId(queuedCard.card.id)
+            .setCardId(reviewCard.cardId)
             .setCurrentState(states.current)
             .setNewState(newState)
             .setRating(protoRating)
