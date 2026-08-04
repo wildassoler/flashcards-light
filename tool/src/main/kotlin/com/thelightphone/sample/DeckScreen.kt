@@ -1,7 +1,9 @@
 package com.thelightphone.sample
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -148,16 +149,24 @@ class DeckScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { submitAddForm() }) {
-                        Text("Save card")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        LightText(
+                            text = "Save",
+                            variant = LightTextVariant.Copy,
+                            modifier = Modifier
+                                .padding(end = 24.dp)
+                                .lightClickable { submitAddForm() },
+                        )
+                        LightText(
+                            text = "Cancel",
+                            variant = LightTextVariant.Copy,
+                            lighten = true,
+                            modifier = Modifier.lightClickable { showAddForm = false },
+                        )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LightText(
-                        text = "Cancel",
-                        variant = LightTextVariant.Copy,
-                        lighten = true,
-                        modifier = Modifier.lightClickable { showAddForm = false },
-                    )
                 } else {
                     when {
                         state.isLoading -> {

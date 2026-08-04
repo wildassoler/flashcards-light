@@ -1,6 +1,7 @@
 package com.thelightphone.sample
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -169,16 +169,24 @@ class CardsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { submitEditForm() }) {
-                        Text("Save changes")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        LightText(
+                            text = "Save",
+                            variant = LightTextVariant.Copy,
+                            modifier = Modifier
+                                .padding(end = 24.dp)
+                                .lightClickable { submitEditForm() },
+                        )
+                        LightText(
+                            text = "Cancel",
+                            variant = LightTextVariant.Copy,
+                            lighten = true,
+                            modifier = Modifier.lightClickable { editingNoteId = null },
+                        )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LightText(
-                        text = "Cancel",
-                        variant = LightTextVariant.Copy,
-                        lighten = true,
-                        modifier = Modifier.lightClickable { editingNoteId = null },
-                    )
                 } else {
                     when {
                         state.isLoading -> {
