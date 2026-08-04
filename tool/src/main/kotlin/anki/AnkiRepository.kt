@@ -98,6 +98,11 @@ class AnkiRepository(private val backend: Backend) {
         backend.removeNotes(listOf(noteId), emptyList())
     }
 
+    /** Deletes a deck entirely (and everything in it). */
+    fun deleteDeck(deckId: Long) {
+        backend.removeDecks(listOf(deckId))
+    }
+
     /** Fetches the next due/new card WITHIN this specific deck, or null if there's nothing left. */
     fun getNextCardInDeck(deckName: String): ReviewCard? {
         val cardIds = backend.searchCards("deck:\"$deckName\" (is:due or is:new)", noSortOrder())
