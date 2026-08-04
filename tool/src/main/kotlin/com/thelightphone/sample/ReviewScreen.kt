@@ -1,14 +1,18 @@
 package com.thelightphone.sample
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import anki.AnkiBackendManager
@@ -108,67 +112,75 @@ class ReviewScreen(
             ) {
                 LightIcon(
                     icon = LightIcons.BACK,
-                    modifier = Modifier
-                        .padding(bottom = 16.dp)
-                        .lightClickable { goBack() },
-                )
-                LightText(
-                    text = deckName,
-                    variant = LightTextVariant.Heading,
-                    modifier = Modifier.padding(bottom = 24.dp),
+                    modifier = Modifier.lightClickable { goBack() },
                 )
 
-                when {
-                    state.isLoading -> {
-                        LightText(text = "Loading...", variant = LightTextVariant.Copy, lighten = true)
-                    }
-                    !state.hasCard -> {
-                        LightText(
-                            text = "Nothing more to review.",
-                            variant = LightTextVariant.Copy,
-                            lighten = true,
-                        )
-                    }
-                    else -> {
-                        LightText(
-                            text = state.front,
-                            variant = LightTextVariant.Copy,
-                            modifier = Modifier.padding(bottom = 16.dp),
-                        )
-                        if (state.showAnswer) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    when {
+                        state.isLoading -> {
+                            LightText(text = "Loading...", variant = LightTextVariant.Copy, lighten = true)
+                        }
+                        !state.hasCard -> {
                             LightText(
-                                text = state.back,
+                                text = "Nothing more to review.",
                                 variant = LightTextVariant.Copy,
                                 lighten = true,
-                                modifier = Modifier.padding(bottom = 24.dp),
                             )
-                            Row {
+                        }
+                        else -> {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
                                 LightText(
-                                    text = "Hard",
-                                    variant = LightTextVariant.Copy,
-                                    modifier = Modifier
-                                        .padding(end = 16.dp)
-                                        .lightClickable { viewModel.rate(CardRating.HARD) },
+                                    text = state.front,
+                                    variant = LightTextVariant.Heading,
+                                    modifier = Modifier.padding(bottom = 24.dp),
                                 )
-                                LightText(
-                                    text = "Good",
-                                    variant = LightTextVariant.Copy,
-                                    modifier = Modifier
-                                        .padding(end = 16.dp)
-                                        .lightClickable { viewModel.rate(CardRating.GOOD) },
-                                )
-                                LightText(
-                                    text = "Very Good",
-                                    variant = LightTextVariant.Copy,
-                                    modifier = Modifier.lightClickable { viewModel.rate(CardRating.VERY_GOOD) },
-                                )
+                                if (state.showAnswer) {
+                                    LightText(
+                                        text = state.back,
+                                        variant = LightTextVariant.Copy,
+                                        lighten = true,
+                                        modifier = Modifier.padding(bottom = 32.dp),
+                                    )
+                                    Row {
+                                        LightText(
+                                            text = "Hard",
+                                            variant = LightTextVariant.Copy,
+                                            modifier = Modifier
+                                                .padding(end = 24.dp)
+                                                .alpha(0.5f)
+                                                .lightClickable { viewModel.rate(CardRating.HARD) },
+                                        )
+                                        LightText(
+                                            text = "Good",
+                                            variant = LightTextVariant.Copy,
+                                            modifier = Modifier
+                                                .padding(end = 24.dp)
+                                                .alpha(0.75f)
+                                                .lightClickable { viewModel.rate(CardRating.GOOD) },
+                                        )
+                                        LightText(
+                                            text = "Very Good",
+                                            variant = LightTextVariant.Copy,
+                                            modifier = Modifier
+                                                .alpha(1f)
+                                                .lightClickable { viewModel.rate(CardRating.VERY_GOOD) },
+                                        )
+                                    }
+                                } else {
+                                    LightText(
+                                        text = "Show answer",
+                                        variant = LightTextVariant.Copy,
+                                        modifier = Modifier.lightClickable { viewModel.revealAnswer() },
+                                    )
+                                }
                             }
-                        } else {
-                            LightText(
-                                text = "Show answer",
-                                variant = LightTextVariant.Copy,
-                                modifier = Modifier.lightClickable { viewModel.revealAnswer() },
-                            )
                         }
                     }
                 }
