@@ -2,7 +2,6 @@ package com.thelightphone.sample
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,7 +19,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
@@ -78,13 +76,6 @@ class DeckScreenViewModel(filesDir: File, private val deckId: Long, private val 
             loadStatus()
         }
     }
-
-    fun deleteDeck(onDeleted: () -> Unit) {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) { repository.deleteDeck(deckId) }
-            onDeleted()
-        }
-    }
 }
 
 class DeckScreen(
@@ -106,7 +97,6 @@ class DeckScreen(
         var showAddForm by remember { mutableStateOf(false) }
         var frontInput by remember { mutableStateOf("") }
         var backInput by remember { mutableStateOf("") }
-        var confirmingDelete by remember { mutableStateOf(false) }
         val keyboardController = LocalSoftwareKeyboardController.current
 
         fun submitAddForm() {
@@ -132,144 +122,96 @@ class DeckScreen(
                         .padding(bottom = 16.dp)
                         .lightClickable { goBack() },
                 )
+                LightText(
+                    text = deckName,
+                    variant = LightTextVariant.Heading,
+                    modifier = Modifier.padding(bottom = 24.dp),
+                )
 
-                if (confirmingDelete) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center,
+                if (showAddForm) {
+                    OutlinedTextField(
+                        value = frontInput,
+                        onValueChange = { frontInput = it },
+                        label = { Text("Front") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = backInput,
+                        onValueChange = { backInput = it },
+                        label = { Text("Back") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { submitAddForm() }),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            LightText(
-                                text = "Are you sure you want to delete this deck?",
-                                variant = LightTextVariant.Copy,
-                                modifier = Modifier.padding(bottom = 24.dp),
-                            )
-                            Row {
-                                LightText(
-                                    text = "Yes, delete",
-                                    variant = LightTextVariant.Copy,
-                                    modifier = Modifier
-                                        .padding(end = 24.dp)
-                                        .lightClickable {
-                                            viewModel.deleteDeck { goBack() }
-                                        },
-                                )
-                                LightText(
-                                    text = "Cancel",
-                                    variant = LightTextVariant.Copy,
-                                    lighten = true,
-                                    modifier = Modifier.lightClickable { confirmingDelete = false },
-                                )
-                            }
-                        }
+                        LightText(
+                            text = "Save",
+                            variant = LightTextVariant.Copy,
+                            modifier = Modifier
+                                .padding(end = 24.dp)
+                                .lightClickable { submitAddForm() },
+                        )
+                        LightText(
+                            text = "Cancel",
+                            variant = LightTextVariant.Copy,
+                            lighten = true,
+                            modifier = Modifier.lightClickable { showAddForm = false },
+                        )
                     }
                 } else {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 24.dp),
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        LightText(
-                            text = deckName,
-                            variant = LightTextVariant.Heading,
-                            modifier = Modifier.weight(1f),
-                        )
-                        LightText(
-                            text = "Delete",
-                            variant = LightTextVariant.Copy,
-                            lighten = true,
-                            modifier = Modifier.lightClickable { confirmingDelete = true },
-                        )
-                    }
-
-                    if (showAddForm) {
-                        OutlinedTextField(
-                            value = frontInput,
-                            onValueChange = { frontInput = it },
-                            label = { Text("Front") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = backInput,
-                            onValueChange = { backInput = it },
-                            label = { Text("Back") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { submitAddForm() }),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
+                    when {
+                        state.isLoading -> {
+                            LightText(text = "Loading...", variant = LightTextVariant.Copy, lighten = true)
+                        }
+                        state.reviewCount > 0 -> {
                             LightText(
-                                text = "Save",
+                                text = "${state.reviewCount} to review",
                                 variant = LightTextVariant.Copy,
                                 modifier = Modifier
-                                    .padding(end = 24.dp)
-                                    .lightClickable { submitAddForm() },
+                                    .padding(bottom = 24.dp)
+                                    .lightClickable {
+                                        navigateTo<Unit>(screenFactory = { sealedActivity ->
+                                            ReviewScreen(sealedActivity, deckName)
+                                        })
+                                    },
                             )
+                        }
+                        else -> {
                             LightText(
-                                text = "Cancel",
+                                text = "Nothing to review right now.",
                                 variant = LightTextVariant.Copy,
                                 lighten = true,
-                                modifier = Modifier.lightClickable { showAddForm = false },
+                                modifier = Modifier.padding(bottom = 24.dp),
                             )
                         }
-                    } else {
-                        when {
-                            state.isLoading -> {
-                                LightText(text = "Loading...", variant = LightTextVariant.Copy, lighten = true)
-                            }
-                            state.reviewCount > 0 -> {
-                                LightText(
-                                    text = "${state.reviewCount} to review",
-                                    variant = LightTextVariant.Copy,
-                                    modifier = Modifier
-                                        .padding(bottom = 24.dp)
-                                        .lightClickable {
-                                            navigateTo<Unit>(screenFactory = { sealedActivity ->
-                                                ReviewScreen(sealedActivity, deckName)
-                                            })
-                                        },
-                                )
-                            }
-                            else -> {
-                                LightText(
-                                    text = "Nothing to review right now.",
-                                    variant = LightTextVariant.Copy,
-                                    lighten = true,
-                                    modifier = Modifier.padding(bottom = 24.dp),
-                                )
-                            }
-                        }
-
-                        LightText(
-                            text = "+ Add card",
-                            variant = LightTextVariant.Copy,
-                            lighten = true,
-                            modifier = Modifier.lightClickable { showAddForm = true },
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        LightText(
-                            text = "Edit cards",
-                            variant = LightTextVariant.Copy,
-                            lighten = true,
-                            modifier = Modifier.lightClickable {
-                                navigateTo<Unit>(screenFactory = { sealedActivity ->
-                                    CardsScreen(sealedActivity, deckName)
-                                })
-                            },
-                        )
                     }
+
+                    LightText(
+                        text = "+ Add card",
+                        variant = LightTextVariant.Copy,
+                        lighten = true,
+                        modifier = Modifier.lightClickable { showAddForm = true },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LightText(
+                        text = "Edit cards",
+                        variant = LightTextVariant.Copy,
+                        lighten = true,
+                        modifier = Modifier.lightClickable {
+                            navigateTo<Unit>(screenFactory = { sealedActivity ->
+                                CardsScreen(sealedActivity, deckName)
+                            })
+                        },
+                    )
                 }
             }
         }

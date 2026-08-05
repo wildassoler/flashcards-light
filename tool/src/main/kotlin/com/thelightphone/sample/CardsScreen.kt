@@ -2,6 +2,7 @@ package com.thelightphone.sample
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
@@ -87,6 +89,33 @@ class CardsScreenViewModel(filesDir: File, private val deckName: String) : Light
     }
 }
 
+/** Bottom confirmation bar matching LightOS's native style: X to cancel, uppercase label to confirm. */
+@Composable
+private fun ConfirmationBar(
+    confirmLabel: String,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LightText(
+            text = "✕",
+            variant = LightTextVariant.Copy,
+            modifier = Modifier.lightClickable { onCancel() },
+        )
+        LightText(
+            text = confirmLabel.uppercase(),
+            variant = LightTextVariant.Copy,
+            modifier = Modifier.lightClickable { onConfirm() },
+        )
+    }
+}
+
 class CardsScreen(
     sealedActivity: SealedLightActivity,
     private val deckName: String,
@@ -105,6 +134,7 @@ class CardsScreen(
         var editingNoteId by remember { mutableStateOf<Long?>(null) }
         var frontInput by remember { mutableStateOf("") }
         var backInput by remember { mutableStateOf("") }
+        var cardPendingDelete by remember { mutableStateOf<Long?>(null) }
         val keyboardController = LocalSoftwareKeyboardController.current
 
         fun openEditForm(noteId: Long, front: String, back: String) {
@@ -134,10 +164,10 @@ class CardsScreen(
                     modifier = Modifier
                         .padding(bottom = 16.dp)
                         .lightClickable {
-                            if (editingNoteId != null) {
-                                editingNoteId = null
-                            } else {
-                                goBack()
+                            when {
+                                cardPendingDelete != null -> cardPendingDelete = null
+                                editingNoteId != null -> editingNoteId = null
+                                else -> goBack()
                             }
                         },
                 )
@@ -148,78 +178,103 @@ class CardsScreen(
                 )
 
                 val noteId = editingNoteId
-                if (noteId != null) {
-                    OutlinedTextField(
-                        value = frontInput,
-                        onValueChange = { frontInput = it },
-                        label = { Text("Front") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = backInput,
-                        onValueChange = { backInput = it },
-                        label = { Text("Back") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { submitEditForm() }),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        LightText(
-                            text = "Save",
-                            variant = LightTextVariant.Copy,
+                val deletingId = cardPendingDelete
+                when {
+                    deletingId != null -> {
+                        Box(
                             modifier = Modifier
-                                .padding(end = 24.dp)
-                                .lightClickable { submitEditForm() },
-                        )
-                        LightText(
-                            text = "Cancel",
-                            variant = LightTextVariant.Copy,
-                            lighten = true,
-                            modifier = Modifier.lightClickable { editingNoteId = null },
-                        )
-                    }
-                } else {
-                    when {
-                        state.isLoading -> {
-                            LightText(text = "Loading...", variant = LightTextVariant.Copy, lighten = true)
-                        }
-                        state.cards.isEmpty() -> {
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             LightText(
-                                text = "No cards yet.",
+                                text = "Delete this card?",
                                 variant = LightTextVariant.Copy,
-                                lighten = true,
                             )
                         }
-                        else -> {
-                            LazyColumn {
-                                items(state.cards) { (id, front, back) ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
-                                    ) {
-                                        LightText(
-                                            text = front,
-                                            variant = LightTextVariant.Copy,
+                        ConfirmationBar(
+                            confirmLabel = "Delete",
+                            onCancel = { cardPendingDelete = null },
+                            onConfirm = {
+                                viewModel.deleteCard(deletingId)
+                                cardPendingDelete = null
+                            },
+                        )
+                    }
+                    noteId != null -> {
+                        OutlinedTextField(
+                            value = frontInput,
+                            onValueChange = { frontInput = it },
+                            label = { Text("Front") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = backInput,
+                            onValueChange = { backInput = it },
+                            label = { Text("Back") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { submitEditForm() }),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            LightText(
+                                text = "Save",
+                                variant = LightTextVariant.Copy,
+                                modifier = Modifier
+                                    .padding(end = 24.dp)
+                                    .lightClickable { submitEditForm() },
+                            )
+                            LightText(
+                                text = "Cancel",
+                                variant = LightTextVariant.Copy,
+                                lighten = true,
+                                modifier = Modifier.lightClickable { editingNoteId = null },
+                            )
+                        }
+                    }
+                    else -> {
+                        when {
+                            state.isLoading -> {
+                                LightText(text = "Loading...", variant = LightTextVariant.Copy, lighten = true)
+                            }
+                            state.cards.isEmpty() -> {
+                                LightText(
+                                    text = "No cards yet.",
+                                    variant = LightTextVariant.Copy,
+                                    lighten = true,
+                                )
+                            }
+                            else -> {
+                                LazyColumn {
+                                    items(state.cards) { (id, front, back) ->
+                                        Row(
                                             modifier = Modifier
-                                                .weight(1f)
-                                                .lightClickable { openEditForm(id, front, back) },
-                                        )
-                                        LightText(
-                                            text = "Delete",
-                                            variant = LightTextVariant.Copy,
-                                            lighten = true,
-                                            modifier = Modifier.lightClickable { viewModel.deleteCard(id) },
-                                        )
+                                                .fillMaxWidth()
+                                                .padding(vertical = 8.dp),
+                                        ) {
+                                            LightText(
+                                                text = front,
+                                                variant = LightTextVariant.Copy,
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .lightClickable { openEditForm(id, front, back) },
+                                            )
+                                            LightText(
+                                                text = "Delete",
+                                                variant = LightTextVariant.Copy,
+                                                lighten = true,
+                                                modifier = Modifier.lightClickable { cardPendingDelete = id },
+                                            )
+                                        }
                                     }
                                 }
                             }

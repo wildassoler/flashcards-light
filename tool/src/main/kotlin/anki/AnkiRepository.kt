@@ -46,6 +46,15 @@ class AnkiRepository(private val backend: Backend) {
         return opChanges.id
     }
 
+    /** Renames an existing deck. */
+    fun renameDeck(deckId: Long, newName: String) {
+        backend.renameDeck(deckId, newName.trim())
+    }
+
+    fun deleteDeck(deckId: Long) {
+        backend.removeDecks(listOf(deckId))
+    }
+
     private fun noSortOrder() = anki.search.SortOrder.newBuilder()
         .setNone(anki.generic.Empty.getDefaultInstance())
         .build()
@@ -98,12 +107,6 @@ class AnkiRepository(private val backend: Backend) {
         backend.removeNotes(listOf(noteId), emptyList())
     }
 
-    /** Deletes a deck entirely (and everything in it). */
-    fun deleteDeck(deckId: Long) {
-        backend.removeDecks(listOf(deckId))
-    }
-
-    /** Fetches the next due/new card WITHIN this specific deck, or null if there's nothing left. */
     fun getNextCardInDeck(deckName: String): ReviewCard? {
         val cardIds = backend.searchCards("deck:\"$deckName\" (is:due or is:new)", noSortOrder())
         val cardId = cardIds.firstOrNull() ?: return null
@@ -115,7 +118,6 @@ class AnkiRepository(private val backend: Backend) {
         return ReviewCard(cardId, front, back, states)
     }
 
-    /** Submits the user's rating for a card, driving the real spaced-repetition scheduler. */
     fun answerReviewCard(reviewCard: ReviewCard, rating: CardRating) {
         val states = reviewCard.states
         val newState = when (rating) {

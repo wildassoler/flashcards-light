@@ -45,9 +45,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+data class DeckSummary(
+    val id: Long,
+    val name: String,
+    val totalCount: Int,
+    val dueCount: Int,
+)
+
 data class DecksUiState(
     val isLoading: Boolean = true,
-    val decks: List<Triple<Long, String, Int>> = emptyList(),
+    val decks: List<DeckSummary> = emptyList(),
 )
 
 class HomeScreenViewModel(filesDir: File) : LightViewModel<Unit>() {
@@ -68,7 +75,12 @@ class HomeScreenViewModel(filesDir: File) : LightViewModel<Unit>() {
             uiState.value = uiState.value.copy(isLoading = true)
             val decks = withContext(Dispatchers.IO) {
                 repository.listDecks().map { (id, name) ->
-                    Triple(id, name, repository.countCardsInDeck(name))
+                    DeckSummary(
+                        id = id,
+                        name = name,
+                        totalCount = repository.countCardsInDeck(name),
+                        dueCount = repository.countReviewableInDeck(name),
+                    )
                 }
             }
             uiState.value = DecksUiState(isLoading = false, decks = decks)
@@ -166,15 +178,20 @@ class HomeScreen(sealedActivity: SealedLightActivity) : LightScreen<Unit, HomeSc
                         }
                         else -> {
                             LazyColumn(modifier = Modifier.padding(bottom = 24.dp)) {
-                                items(state.decks) { (id, name, count) ->
+                                items(state.decks) { deck ->
+                                    val label = if (deck.dueCount > 0) {
+                                        "${deck.name} (${deck.dueCount} due)"
+                                    } else {
+                                        "${deck.name} (${deck.totalCount} cards)"
+                                    }
                                     LightText(
-                                        text = "$name ($count)",
+                                        text = label,
                                         variant = LightTextVariant.Copy,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .lightClickable {
                                                 navigateTo<Unit>(screenFactory = { sealedActivity ->
-                                                    DeckScreen(sealedActivity, id, name)
+                                                    DeckScreen(sealedActivity, deck.id, deck.name)
                                                 })
                                             }
                                             .padding(vertical = 12.dp),
@@ -189,6 +206,17 @@ class HomeScreen(sealedActivity: SealedLightActivity) : LightScreen<Unit, HomeSc
                         variant = LightTextVariant.Copy,
                         lighten = true,
                         modifier = Modifier.lightClickable { showAddDeckForm = true },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LightText(
+                        text = "Edit decks",
+                        variant = LightTextVariant.Copy,
+                        lighten = true,
+                        modifier = Modifier.lightClickable {
+                            navigateTo<Unit>(screenFactory = { sealedActivity ->
+                                EditDecksScreen(sealedActivity)
+                            })
+                        },
                     )
                 }
             }
