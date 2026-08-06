@@ -89,10 +89,9 @@ class CardsScreenViewModel(filesDir: File, private val deckName: String) : Light
     }
 }
 
-/** Bottom confirmation bar matching LightOS's native style: X to cancel, uppercase label to confirm. */
+/** Bottom confirmation bar matching LightOS's native style: CLOSE icon to cancel, "CONFIRM" to confirm. */
 @Composable
 private fun ConfirmationBar(
-    confirmLabel: String,
     onCancel: () -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -103,13 +102,12 @@ private fun ConfirmationBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LightText(
-            text = "✕",
-            variant = LightTextVariant.Copy,
+        LightIcon(
+            icon = LightIcons.CLOSE,
             modifier = Modifier.lightClickable { onCancel() },
         )
         LightText(
-            text = confirmLabel.uppercase(),
+            text = "CONFIRM",
             variant = LightTextVariant.Copy,
             modifier = Modifier.lightClickable { onConfirm() },
         )
@@ -193,7 +191,6 @@ class CardsScreen(
                             )
                         }
                         ConfirmationBar(
-                            confirmLabel = "Delete",
                             onCancel = { cardPendingDelete = null },
                             onConfirm = {
                                 viewModel.deleteCard(deletingId)
@@ -260,6 +257,7 @@ class CardsScreen(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             LightText(
                                                 text = front,
@@ -268,10 +266,14 @@ class CardsScreen(
                                                     .weight(1f)
                                                     .lightClickable { openEditForm(id, front, back) },
                                             )
-                                            LightText(
-                                                text = "Delete",
-                                                variant = LightTextVariant.Copy,
-                                                lighten = true,
+                                            LightIcon(
+                                                icon = LightIcons.PENCIL,
+                                                modifier = Modifier
+                                                    .padding(end = 12.dp)
+                                                    .lightClickable { openEditForm(id, front, back) },
+                                            )
+                                            LightIcon(
+                                                icon = LightIcons.TRASH,
                                                 modifier = Modifier.lightClickable { cardPendingDelete = id },
                                             )
                                         }

@@ -89,10 +89,9 @@ class EditDecksScreenViewModel(filesDir: File) : LightViewModel<Unit>() {
     }
 }
 
-/** Bottom confirmation bar matching LightOS's native style: X to cancel, uppercase label to confirm. */
+/** Bottom confirmation bar matching LightOS's native style: CLOSE icon to cancel, "CONFIRM" to confirm. */
 @Composable
 private fun ConfirmationBar(
-    confirmLabel: String,
     onCancel: () -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -103,13 +102,12 @@ private fun ConfirmationBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LightText(
-            text = "✕",
-            variant = LightTextVariant.Copy,
+        LightIcon(
+            icon = LightIcons.CLOSE,
             modifier = Modifier.lightClickable { onCancel() },
         )
         LightText(
-            text = confirmLabel.uppercase(),
+            text = "CONFIRM",
             variant = LightTextVariant.Copy,
             modifier = Modifier.lightClickable { onConfirm() },
         )
@@ -190,7 +188,6 @@ class EditDecksScreen(
                             )
                         }
                         ConfirmationBar(
-                            confirmLabel = "Delete",
                             onCancel = { deckPendingDelete = null },
                             onConfirm = {
                                 viewModel.deleteDeck(deletingId)
@@ -247,6 +244,7 @@ class EditDecksScreen(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             LightText(
                                                 text = name,
@@ -255,10 +253,14 @@ class EditDecksScreen(
                                                     .weight(1f)
                                                     .lightClickable { openRenameForm(id, name) },
                                             )
-                                            LightText(
-                                                text = "Delete",
-                                                variant = LightTextVariant.Copy,
-                                                lighten = true,
+                                            LightIcon(
+                                                icon = LightIcons.PENCIL,
+                                                modifier = Modifier
+                                                    .padding(end = 12.dp)
+                                                    .lightClickable { openRenameForm(id, name) },
+                                            )
+                                            LightIcon(
+                                                icon = LightIcons.TRASH,
                                                 modifier = Modifier.lightClickable { deckPendingDelete = id },
                                             )
                                         }
