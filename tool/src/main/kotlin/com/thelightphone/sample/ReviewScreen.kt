@@ -18,6 +18,7 @@ import androidx.lifecycle.viewModelScope
 import anki.AnkiBackendManager
 import anki.AnkiRepository
 import anki.CardRating
+import anki.RealAnkiRepository
 import anki.ReviewCard
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
@@ -31,7 +32,6 @@ import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
 import com.thelightphone.sdk.ui.lightClickable
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -45,11 +45,10 @@ data class ReviewUiState(
     val showAnswer: Boolean = false,
 )
 
-class ReviewScreenViewModel(filesDir: File, private val deckName: String) : LightViewModel<Unit>() {
-
-    private val repository: AnkiRepository by lazy {
-        AnkiRepository(AnkiBackendManager.getBackend(filesDir))
-    }
+class ReviewScreenViewModel(
+    private val repository: AnkiRepository,
+    private val deckName: String,
+) : LightViewModel<Unit>() {
 
     val uiState = MutableStateFlow(ReviewUiState())
 
@@ -95,7 +94,8 @@ class ReviewScreen(
         get() = ReviewScreenViewModel::class.java
 
     override fun createViewModel(): ReviewScreenViewModel {
-        return ReviewScreenViewModel(lightContext.filesDir, deckName)
+        val backend = AnkiBackendManager.getBackend(lightContext.filesDir)
+        return ReviewScreenViewModel(RealAnkiRepository(backend), deckName)
     }
 
     @Composable

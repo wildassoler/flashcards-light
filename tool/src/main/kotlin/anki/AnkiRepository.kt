@@ -17,7 +17,24 @@ data class ReviewCard(
     val states: SchedulingStates,
 )
 
-class AnkiRepository(private val backend: Backend) {
+/** Everything the app's ViewModels need from the Anki collection. */
+interface AnkiRepository {
+    fun listDecks(): List<Pair<Long, String>>
+    fun createDeck(name: String): Long
+    fun renameDeck(deckId: Long, newName: String)
+    fun deleteDeck(deckId: Long)
+    fun countCardsInDeck(deckName: String): Int
+    fun countReviewableInDeck(deckName: String): Int
+    fun listCardsInDeck(deckName: String): List<Triple<Long, String, String>>
+    fun addCard(front: String, back: String, deckId: Long)
+    fun updateCard(noteId: Long, front: String, back: String)
+    fun deleteCard(noteId: Long)
+    fun getNextCardInDeck(deckName: String): ReviewCard?
+    fun answerReviewCard(reviewCard: ReviewCard, rating: CardRating)
+}
+
+/** Real implementation, backed by the Anki JNI backend. */
+class RealAnkiRepository(private val backend: Backend) : AnkiRepository {
 
     private var cachedNotetypeId: Long? = null
 
@@ -34,24 +51,28 @@ class AnkiRepository(private val backend: Backend) {
         return opChanges.id
     }
 
-    fun listDecks(): List<Pair<Long, String>> {
+    /** Escapes characters that would break Anki's search syntax (e.g. a deck name containing quotes). */
+    private fun escapeForSearch(text: String): String {
+        return text.replace("\\", "\\\\").replace("\"", "\\\"")
+    }
+
+    override fun listDecks(): List<Pair<Long, String>> {
         return backend.getDeckNames(skipEmptyDefault = true, includeFiltered = false)
             .map { it.id to it.name }
     }
 
-    fun createDeck(name: String): Long {
+    override fun createDeck(name: String): Long {
         val blankDeck = backend.newDeck()
         val deck = blankDeck.toBuilder().setName(name.trim()).build()
         val opChanges = backend.addDeck(deck)
         return opChanges.id
     }
 
-    /** Renames an existing deck. */
-    fun renameDeck(deckId: Long, newName: String) {
+    override fun renameDeck(deckId: Long, newName: String) {
         backend.renameDeck(deckId, newName.trim())
     }
 
-    fun deleteDeck(deckId: Long) {
+    override fun deleteDeck(deckId: Long) {
         backend.removeDecks(listOf(deckId))
     }
 
@@ -59,17 +80,16 @@ class AnkiRepository(private val backend: Backend) {
         .setNone(anki.generic.Empty.getDefaultInstance())
         .build()
 
-    fun countCardsInDeck(deckName: String): Int {
-        return backend.searchCards("deck:\"$deckName\"", noSortOrder()).size
+    override fun countCardsInDeck(deckName: String): Int {
+        return backend.searchCards("deck:\"${escapeForSearch(deckName)}\"", noSortOrder()).size
     }
 
-    /** Counts how many cards in this deck are due for review or new (ready to study today). */
-    fun countReviewableInDeck(deckName: String): Int {
-        return backend.searchCards("deck:\"$deckName\" (is:due or is:new)", noSortOrder()).size
+    override fun countReviewableInDeck(deckName: String): Int {
+        return backend.searchCards("deck:\"${escapeForSearch(deckName)}\" (is:due or is:new)", noSortOrder()).size
     }
 
-    fun listCardsInDeck(deckName: String): List<Triple<Long, String, String>> {
-        val cardIds = backend.searchCards("deck:\"$deckName\"", noSortOrder())
+    override fun listCardsInDeck(deckName: String): List<Triple<Long, String, String>> {
+        val cardIds = backend.searchCards("deck:\"${escapeForSearch(deckName)}\"", noSortOrder())
         val seenNoteIds = mutableSetOf<Long>()
         val result = mutableListOf<Triple<Long, String, String>>()
         for (cardId in cardIds) {
@@ -84,7 +104,7 @@ class AnkiRepository(private val backend: Backend) {
         return result
     }
 
-    fun addCard(front: String, back: String, deckId: Long) {
+    override fun addCard(front: String, back: String, deckId: Long) {
         val notetypeId = ensureNotetypeId()
         val blankNote: Note = backend.newNote(notetypeId)
         val note = blankNote.toBuilder()
@@ -94,7 +114,7 @@ class AnkiRepository(private val backend: Backend) {
         backend.addNote(note, deckId)
     }
 
-    fun updateCard(noteId: Long, front: String, back: String) {
+    override fun updateCard(noteId: Long, front: String, back: String) {
         val note = backend.getNote(noteId)
         val updated = note.toBuilder()
             .setFields(0, front)
@@ -103,12 +123,12 @@ class AnkiRepository(private val backend: Backend) {
         backend.updateNotes(listOf(updated), false)
     }
 
-    fun deleteCard(noteId: Long) {
+    override fun deleteCard(noteId: Long) {
         backend.removeNotes(listOf(noteId), emptyList())
     }
 
-    fun getNextCardInDeck(deckName: String): ReviewCard? {
-        val cardIds = backend.searchCards("deck:\"$deckName\" (is:due or is:new)", noSortOrder())
+    override fun getNextCardInDeck(deckName: String): ReviewCard? {
+        val cardIds = backend.searchCards("deck:\"${escapeForSearch(deckName)}\" (is:due or is:new)", noSortOrder())
         val cardId = cardIds.firstOrNull() ?: return null
         val card = backend.getCard(cardId)
         val note = backend.getNote(card.noteId)
@@ -118,7 +138,7 @@ class AnkiRepository(private val backend: Backend) {
         return ReviewCard(cardId, front, back, states)
     }
 
-    fun answerReviewCard(reviewCard: ReviewCard, rating: CardRating) {
+    override fun answerReviewCard(reviewCard: ReviewCard, rating: CardRating) {
         val states = reviewCard.states
         val newState = when (rating) {
             CardRating.HARD -> states.hard

@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import anki.AnkiBackendManager
 import anki.AnkiRepository
+import anki.RealAnkiRepository
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
@@ -42,7 +43,6 @@ import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
 import com.thelightphone.sdk.ui.lightClickable
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -53,11 +53,10 @@ data class CardsUiState(
     val cards: List<Triple<Long, String, String>> = emptyList(),
 )
 
-class CardsScreenViewModel(filesDir: File, private val deckName: String) : LightViewModel<Unit>() {
-
-    private val repository: AnkiRepository by lazy {
-        AnkiRepository(AnkiBackendManager.getBackend(filesDir))
-    }
+class CardsScreenViewModel(
+    private val repository: AnkiRepository,
+    private val deckName: String,
+) : LightViewModel<Unit>() {
 
     val uiState = MutableStateFlow(CardsUiState())
 
@@ -122,7 +121,8 @@ class CardsScreen(
         get() = CardsScreenViewModel::class.java
 
     override fun createViewModel(): CardsScreenViewModel {
-        return CardsScreenViewModel(lightContext.filesDir, deckName)
+        val backend = AnkiBackendManager.getBackend(lightContext.filesDir)
+        return CardsScreenViewModel(RealAnkiRepository(backend), deckName)
     }
 
     @Composable
