@@ -1,5 +1,6 @@
 package com.thelightphone.sample
 
+import anki.AnkiBackendManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,9 +29,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
-import anki.AnkiBackendManager
 import anki.AnkiRepository
-import anki.RealAnkiRepository
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
@@ -85,31 +84,6 @@ class EditDecksScreenViewModel(private val repository: AnkiRepository) : LightVi
     }
 }
 
-/** Bottom confirmation bar matching LightOS's native style: CLOSE icon to cancel, "CONFIRM" to confirm. */
-@Composable
-private fun ConfirmationBar(
-    onCancel: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        LightIcon(
-            icon = LightIcons.CLOSE,
-            modifier = Modifier.lightClickable { onCancel() },
-        )
-        LightText(
-            text = "CONFIRM",
-            variant = LightTextVariant.Copy,
-            modifier = Modifier.lightClickable { onConfirm() },
-        )
-    }
-}
-
 class EditDecksScreen(
     sealedActivity: SealedLightActivity,
 ) : LightScreen<Unit, EditDecksScreenViewModel>(sealedActivity) {
@@ -117,8 +91,7 @@ class EditDecksScreen(
         get() = EditDecksScreenViewModel::class.java
 
     override fun createViewModel(): EditDecksScreenViewModel {
-        val backend = AnkiBackendManager.getBackend(lightContext.filesDir)
-        return EditDecksScreenViewModel(RealAnkiRepository(backend))
+        return EditDecksScreenViewModel(AnkiBackendManager.getRepository(lightContext.filesDir))
     }
 
     @Composable

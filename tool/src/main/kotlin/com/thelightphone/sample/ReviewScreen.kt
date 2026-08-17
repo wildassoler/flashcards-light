@@ -1,5 +1,6 @@
 package com.thelightphone.sample
 
+import anki.AnkiBackendManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,10 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
-import anki.AnkiBackendManager
 import anki.AnkiRepository
 import anki.CardRating
-import anki.RealAnkiRepository
 import anki.ReviewCard
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
@@ -94,8 +93,7 @@ class ReviewScreen(
         get() = ReviewScreenViewModel::class.java
 
     override fun createViewModel(): ReviewScreenViewModel {
-        val backend = AnkiBackendManager.getBackend(lightContext.filesDir)
-        return ReviewScreenViewModel(RealAnkiRepository(backend), deckName)
+        return ReviewScreenViewModel(AnkiBackendManager.getRepository(lightContext.filesDir), deckName)
     }
 
     @Composable

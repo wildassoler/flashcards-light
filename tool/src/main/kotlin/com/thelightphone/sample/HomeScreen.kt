@@ -1,5 +1,6 @@
 package com.thelightphone.sample
 
+import anki.AnkiBackendManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,9 +27,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
-import anki.AnkiBackendManager
 import anki.AnkiRepository
-import anki.RealAnkiRepository
 import com.thelightphone.sdk.InitialScreen
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
@@ -97,8 +96,7 @@ class HomeScreen(sealedActivity: SealedLightActivity) : LightScreen<Unit, HomeSc
         get() = HomeScreenViewModel::class.java
 
     override fun createViewModel(): HomeScreenViewModel {
-        val backend = AnkiBackendManager.getBackend(lightContext.filesDir)
-        return HomeScreenViewModel(RealAnkiRepository(backend))
+        return HomeScreenViewModel(AnkiBackendManager.getRepository(lightContext.filesDir))
     }
 
     @Composable

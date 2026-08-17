@@ -1,5 +1,6 @@
 package com.thelightphone.sample
 
+import anki.AnkiBackendManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,9 +25,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
-import anki.AnkiBackendManager
 import anki.AnkiRepository
-import anki.RealAnkiRepository
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
@@ -87,8 +86,7 @@ class DeckScreen(
         get() = DeckScreenViewModel::class.java
 
     override fun createViewModel(): DeckScreenViewModel {
-        val backend = AnkiBackendManager.getBackend(lightContext.filesDir)
-        return DeckScreenViewModel(RealAnkiRepository(backend), deckId, deckName)
+        return DeckScreenViewModel(AnkiBackendManager.getRepository(lightContext.filesDir), deckId, deckName)
     }
 
     @Composable

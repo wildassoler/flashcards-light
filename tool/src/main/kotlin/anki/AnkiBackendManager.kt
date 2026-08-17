@@ -42,6 +42,11 @@ object AnkiBackendManager {
         return newBackend
     }
 
+    /** Convenience helper: builds a ready-to-use AnkiRepository backed by the shared Backend instance. */
+    fun getRepository(collectionDir: File): AnkiRepository {
+        return RealAnkiRepository(getBackend(collectionDir))
+    }
+
     fun close() {
         backend?.close()
         backend = null

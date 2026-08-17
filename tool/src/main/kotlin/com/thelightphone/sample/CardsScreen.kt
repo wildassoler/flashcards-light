@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import anki.AnkiBackendManager
 import anki.AnkiRepository
-import anki.RealAnkiRepository
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
@@ -88,31 +87,6 @@ class CardsScreenViewModel(
     }
 }
 
-/** Bottom confirmation bar matching LightOS's native style: CLOSE icon to cancel, "CONFIRM" to confirm. */
-@Composable
-private fun ConfirmationBar(
-    onCancel: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        LightIcon(
-            icon = LightIcons.CLOSE,
-            modifier = Modifier.lightClickable { onCancel() },
-        )
-        LightText(
-            text = "CONFIRM",
-            variant = LightTextVariant.Copy,
-            modifier = Modifier.lightClickable { onConfirm() },
-        )
-    }
-}
-
 class CardsScreen(
     sealedActivity: SealedLightActivity,
     private val deckName: String,
@@ -121,8 +95,7 @@ class CardsScreen(
         get() = CardsScreenViewModel::class.java
 
     override fun createViewModel(): CardsScreenViewModel {
-        val backend = AnkiBackendManager.getBackend(lightContext.filesDir)
-        return CardsScreenViewModel(RealAnkiRepository(backend), deckName)
+        return CardsScreenViewModel(AnkiBackendManager.getRepository(lightContext.filesDir), deckName)
     }
 
     @Composable
