@@ -6,16 +6,12 @@ A minimalist flashcard app for the Light Phone III, powered by Anki's real space
 
 ## Features
 
-<<<<<<< HEAD
 - Create and manage multiple decks
 - Add, edit, and delete flashcards (front/back)
 - Review cards using Anki's real spaced-repetition scheduler (Hard / Good / Very Good)
 - Deck-scoped review — each deck tracks its own due/new cards independently
 - Rename and delete decks and cards, with confirmation before deleting
 - Minimalist UI following LightOS's native design language (icons, layout, confirmation patterns)
-=======
-## Quickstart
->>>>>>> upstream/main
 
 ## How it works
 
