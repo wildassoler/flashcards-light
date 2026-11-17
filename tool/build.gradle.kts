@@ -277,4 +277,3 @@ tasks.register<UploadToolTask>("uploadTool") {
     timeoutSeconds.set(providers.gradleProperty("device.timeoutSeconds").map { it.toLong() }.orElse(60L))
     pollIntervalSeconds.set(2L)
 }
->>>>>>> upstream/main
