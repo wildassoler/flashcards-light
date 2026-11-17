@@ -121,7 +121,7 @@ class DeckScreen(
                         icon = LightIcons.BACK,
                         onClick = { goBack() },
                     ),
-                    center = LightTopBarCenter.Text(deckName),
+                    center = LightTopBarCenter.Text(deckName.uppercase()),
                 )
 
                 Column(
