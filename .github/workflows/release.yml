@@ -8,21 +8,6 @@ name: Release
 # jobs" retries them for the already pushed tag.
 
 on:
-  push:
-    branches: [main]
-    # Keep in sync with .github/scripts/release-labels.sh and release-preview.yml.
-    paths:
-      - sdk/**
-      - plugin/**
-      - tool/**
-      - builder/**
-      - lint-rules/**
-      - signer/**
-      - trust-format/**
-      - gradle.properties
-      - gradle/libs.versions.toml
-      - build.gradle.kts
-      - settings.gradle.kts
   workflow_dispatch:
     inputs:
       bump:
