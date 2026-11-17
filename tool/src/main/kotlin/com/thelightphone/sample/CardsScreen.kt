@@ -143,7 +143,7 @@ class CardsScreen(
                             }
                         },
                     ),
-                    center = LightTopBarCenter.Text("Edit cards"),
+                    center = LightTopBarCenter.Text("EDIT CARDS"),
                 )
 
                 Column(

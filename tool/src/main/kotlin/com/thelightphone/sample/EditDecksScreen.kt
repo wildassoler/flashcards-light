@@ -137,7 +137,7 @@ class EditDecksScreen(
                             }
                         },
                     ),
-                    center = LightTopBarCenter.Text("Edit decks"),
+                    center = LightTopBarCenter.Text("EDIT DECKS"),
                 )
 
                 Column(
