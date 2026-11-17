@@ -34,6 +34,7 @@ import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
+import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightIcon
 import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.LightText
@@ -41,6 +42,8 @@ import com.thelightphone.sdk.ui.LightTextVariant
 import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
+import com.thelightphone.sdk.ui.LightTopBar
+import com.thelightphone.sdk.ui.LightTopBarCenter
 import com.thelightphone.sdk.ui.lightClickable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -121,118 +124,121 @@ class EditDecksScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(LightThemeTokens.colors.background)
-                    .padding(32.dp)
+                    .background(LightThemeTokens.colors.background),
             ) {
-                LightIcon(
-                    icon = LightIcons.BACK,
-                    modifier = Modifier
-                        .padding(bottom = 16.dp)
-                        .lightClickable {
+                LightTopBar(
+                    leftButton = LightBarButton.LightIcon(
+                        icon = LightIcons.BACK,
+                        onClick = {
                             when {
                                 deckPendingDelete != null -> deckPendingDelete = null
                                 editingDeckId != null -> editingDeckId = null
                                 else -> goBack()
                             }
                         },
-                )
-                LightText(
-                    text = "Edit decks",
-                    variant = LightTextVariant.Heading,
-                    modifier = Modifier.padding(bottom = 24.dp),
+                    ),
+                    center = LightTopBarCenter.Text("Edit decks"),
                 )
 
-                val deletingId = deckPendingDelete
-                val renamingId = editingDeckId
-                when {
-                    deletingId != null -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            LightText(
-                                text = "Delete this deck and all its cards?",
-                                variant = LightTextVariant.Copy,
-                            )
-                        }
-                        ConfirmationBar(
-                            onCancel = { deckPendingDelete = null },
-                            onConfirm = {
-                                viewModel.deleteDeck(deletingId)
-                                deckPendingDelete = null
-                            },
-                        )
-                    }
-                    renamingId != null -> {
-                        OutlinedTextField(
-                            value = renameInput,
-                            onValueChange = { renameInput = it },
-                            label = { Text("Deck name") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { submitRenameForm() }),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            LightText(
-                                text = "Save",
-                                variant = LightTextVariant.Copy,
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 32.dp, vertical = 16.dp),
+                ) {
+                    val deletingId = deckPendingDelete
+                    val renamingId = editingDeckId
+                    when {
+                        deletingId != null -> {
+                            Box(
                                 modifier = Modifier
-                                    .padding(end = 24.dp)
-                                    .lightClickable { submitRenameForm() },
-                            )
-                            LightText(
-                                text = "Cancel",
-                                variant = LightTextVariant.Copy,
-                                lighten = true,
-                                modifier = Modifier.lightClickable { editingDeckId = null },
-                            )
-                        }
-                    }
-                    else -> {
-                        when {
-                            state.isLoading -> {
-                                LightText(text = "Loading...", variant = LightTextVariant.Copy, lighten = true)
-                            }
-                            state.decks.isEmpty() -> {
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentAlignment = Alignment.Center,
+                            ) {
                                 LightText(
-                                    text = "No decks yet.",
+                                    text = "Delete this deck and all its cards?",
                                     variant = LightTextVariant.Copy,
-                                    lighten = true,
                                 )
                             }
-                            else -> {
-                                LazyColumn {
-                                    items(state.decks) { (id, name) ->
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 8.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            LightText(
-                                                text = name,
-                                                variant = LightTextVariant.Copy,
+                            ConfirmationBar(
+                                onCancel = { deckPendingDelete = null },
+                                onConfirm = {
+                                    viewModel.deleteDeck(deletingId)
+                                    deckPendingDelete = null
+                                },
+                            )
+                        }
+                        renamingId != null -> {
+                            OutlinedTextField(
+                                value = renameInput,
+                                onValueChange = { renameInput = it },
+                                label = { Text("Deck name") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { submitRenameForm() }),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                            ) {
+                                LightText(
+                                    text = "Save",
+                                    variant = LightTextVariant.Copy,
+                                    modifier = Modifier
+                                        .padding(end = 24.dp)
+                                        .lightClickable { submitRenameForm() },
+                                )
+                                LightText(
+                                    text = "Cancel",
+                                    variant = LightTextVariant.Copy,
+                                    lighten = true,
+                                    modifier = Modifier.lightClickable { editingDeckId = null },
+                                )
+                            }
+                        }
+                        else -> {
+                            when {
+                                state.isLoading -> {
+                                    LightText(text = "Loading...", variant = LightTextVariant.Copy, lighten = true)
+                                }
+                                state.decks.isEmpty() -> {
+                                    LightText(
+                                        text = "No decks yet.",
+                                        variant = LightTextVariant.Copy,
+                                        lighten = true,
+                                    )
+                                }
+                                else -> {
+                                    LazyColumn {
+                                        items(state.decks) { (id, name) ->
+                                            Row(
                                                 modifier = Modifier
-                                                    .weight(1f)
-                                                    .lightClickable { openRenameForm(id, name) },
-                                            )
-                                            LightIcon(
-                                                icon = LightIcons.PENCIL,
-                                                modifier = Modifier
-                                                    .padding(end = 12.dp)
-                                                    .lightClickable { openRenameForm(id, name) },
-                                            )
-                                            LightIcon(
-                                                icon = LightIcons.TRASH,
-                                                modifier = Modifier.lightClickable { deckPendingDelete = id },
-                                            )
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                LightText(
+                                                    text = name,
+                                                    variant = LightTextVariant.Copy,
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .lightClickable { openRenameForm(id, name) },
+                                                )
+                                                LightIcon(
+                                                    icon = LightIcons.PENCIL,
+                                                    size = 1.5f,
+                                                    modifier = Modifier
+                                                        .padding(end = 16.dp)
+                                                        .lightClickable { openRenameForm(id, name) },
+                                                )
+                                                LightIcon(
+                                                    icon = LightIcons.TRASH,
+                                                    size = 1.5f,
+                                                    modifier = Modifier.lightClickable { deckPendingDelete = id },
+                                                )
+                                            }
                                         }
                                     }
                                 }

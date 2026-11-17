@@ -30,13 +30,15 @@ import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
-import com.thelightphone.sdk.ui.LightIcon
+import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.LightText
 import com.thelightphone.sdk.ui.LightTextVariant
 import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
+import com.thelightphone.sdk.ui.LightTopBar
+import com.thelightphone.sdk.ui.LightTopBarCenter
 import com.thelightphone.sdk.ui.lightClickable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -112,105 +114,106 @@ class DeckScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(LightThemeTokens.colors.background)
-                    .padding(32.dp)
+                    .background(LightThemeTokens.colors.background),
             ) {
-                LightIcon(
-                    icon = LightIcons.BACK,
-                    modifier = Modifier
-                        .padding(bottom = 16.dp)
-                        .lightClickable { goBack() },
-                )
-                LightText(
-                    text = deckName,
-                    variant = LightTextVariant.Heading,
-                    modifier = Modifier.padding(bottom = 24.dp),
+                LightTopBar(
+                    leftButton = LightBarButton.LightIcon(
+                        icon = LightIcons.BACK,
+                        onClick = { goBack() },
+                    ),
+                    center = LightTopBarCenter.Text(deckName),
                 )
 
-                if (showAddForm) {
-                    OutlinedTextField(
-                        value = frontInput,
-                        onValueChange = { frontInput = it },
-                        label = { Text("Front") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = backInput,
-                        onValueChange = { backInput = it },
-                        label = { Text("Back") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { submitAddForm() }),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        LightText(
-                            text = "Save",
-                            variant = LightTextVariant.Copy,
-                            modifier = Modifier
-                                .padding(end = 24.dp)
-                                .lightClickable { submitAddForm() },
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 32.dp, vertical = 16.dp),
+                ) {
+                    if (showAddForm) {
+                        OutlinedTextField(
+                            value = frontInput,
+                            onValueChange = { frontInput = it },
+                            label = { Text("Front") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
+                            modifier = Modifier.fillMaxWidth(),
                         )
-                        LightText(
-                            text = "Cancel",
-                            variant = LightTextVariant.Copy,
-                            lighten = true,
-                            modifier = Modifier.lightClickable { showAddForm = false },
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = backInput,
+                            onValueChange = { backInput = it },
+                            label = { Text("Back") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { submitAddForm() }),
+                            modifier = Modifier.fillMaxWidth(),
                         )
-                    }
-                } else {
-                    when {
-                        state.isLoading -> {
-                            LightText(text = "Loading...", variant = LightTextVariant.Copy, lighten = true)
-                        }
-                        state.reviewCount > 0 -> {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
                             LightText(
-                                text = "${state.reviewCount} to review",
+                                text = "Save",
                                 variant = LightTextVariant.Copy,
                                 modifier = Modifier
-                                    .padding(bottom = 24.dp)
-                                    .lightClickable {
-                                        navigateTo<Unit>(screenFactory = { sealedActivity ->
-                                            ReviewScreen(sealedActivity, deckName)
-                                        })
-                                    },
+                                    .padding(end = 24.dp)
+                                    .lightClickable { submitAddForm() },
                             )
-                        }
-                        else -> {
                             LightText(
-                                text = "Nothing to review right now.",
+                                text = "Cancel",
                                 variant = LightTextVariant.Copy,
                                 lighten = true,
-                                modifier = Modifier.padding(bottom = 24.dp),
+                                modifier = Modifier.lightClickable { showAddForm = false },
                             )
                         }
-                    }
+                    } else {
+                        when {
+                            state.isLoading -> {
+                                LightText(text = "Loading...", variant = LightTextVariant.Copy, lighten = true)
+                            }
+                            state.reviewCount > 0 -> {
+                                LightText(
+                                    text = "${state.reviewCount} to review",
+                                    variant = LightTextVariant.Copy,
+                                    modifier = Modifier
+                                        .padding(bottom = 24.dp)
+                                        .lightClickable {
+                                            navigateTo<Unit>(screenFactory = { sealedActivity ->
+                                                ReviewScreen(sealedActivity, deckName)
+                                            })
+                                        },
+                                )
+                            }
+                            else -> {
+                                LightText(
+                                    text = "Nothing to review right now.",
+                                    variant = LightTextVariant.Copy,
+                                    lighten = true,
+                                    modifier = Modifier.padding(bottom = 24.dp),
+                                )
+                            }
+                        }
 
-                    LightText(
-                        text = "+ Add card",
-                        variant = LightTextVariant.Copy,
-                        lighten = true,
-                        modifier = Modifier.lightClickable { showAddForm = true },
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LightText(
-                        text = "Edit cards",
-                        variant = LightTextVariant.Copy,
-                        lighten = true,
-                        modifier = Modifier.lightClickable {
-                            navigateTo<Unit>(screenFactory = { sealedActivity ->
-                                CardsScreen(sealedActivity, deckName)
-                            })
-                        },
-                    )
+                        LightText(
+                            text = "+ Add card",
+                            variant = LightTextVariant.Copy,
+                            lighten = true,
+                            modifier = Modifier.lightClickable { showAddForm = true },
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LightText(
+                            text = "Edit cards",
+                            variant = LightTextVariant.Copy,
+                            lighten = true,
+                            modifier = Modifier.lightClickable {
+                                navigateTo<Unit>(screenFactory = { sealedActivity ->
+                                    CardsScreen(sealedActivity, deckName)
+                                })
+                            },
+                        )
+                    }
                 }
             }
         }
