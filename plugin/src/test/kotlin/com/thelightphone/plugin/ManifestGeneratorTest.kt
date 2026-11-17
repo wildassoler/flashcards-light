@@ -12,6 +12,7 @@ class ManifestGeneratorTest {
         capabilities: List<String> = emptyList(),
         serverPackage: String = "com.lightos",
         orientation: String? = null,
+        largeHeap: Boolean = false,
     ): String = ManifestGenerator.render(
         LightToolMetadata(
             toolId = "com.example.mytool",
@@ -22,8 +23,21 @@ class ManifestGeneratorTest {
             capabilities = capabilities,
             serverPackage = serverPackage,
             orientation = orientation,
+            largeHeap = largeHeap,
         )
     )
+
+    @Test
+    fun `cleartext-http capability sets usesCleartextTraffic on the application`() {
+        val xml = render(capabilities = listOf(LightToolPolicy.CLEARTEXT_HTTP))
+        assertTrue(xml.contains("""android:usesCleartextTraffic="true""""))
+    }
+
+    @Test
+    fun `without cleartext-http the manifest never mentions cleartext`() {
+        val xml = render(capabilities = emptyList())
+        assertFalse(xml.contains("usesCleartextTraffic"))
+    }
 
     @Test
     fun `empty permissions produces no uses-permission elements`() {
@@ -94,6 +108,30 @@ class ManifestGeneratorTest {
     }
 
     @Test
+    fun `fine location permission also emits coarse location permission`() {
+        // CoarseFineLocation lint wants COARSE declared alongside FINE; devs
+        // shouldn't have to remember to list both themselves.
+        val xml = render(permissions = listOf("android.permission.ACCESS_FINE_LOCATION"))
+        assertTrue(xml.contains("""<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />"""))
+        assertTrue(xml.contains("""<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />"""))
+    }
+
+    @Test
+    fun `explicit fine and coarse location permissions are not duplicated`() {
+        val xml = render(permissions = listOf(
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION",
+        ))
+        assertTrue(xml.split("android.permission.ACCESS_COARSE_LOCATION").size - 1 == 1)
+    }
+
+    @Test
+    fun `coarse location alone does not imply fine location`() {
+        val xml = render(permissions = listOf("android.permission.ACCESS_COARSE_LOCATION"))
+        assertFalse(xml.contains("android.permission.ACCESS_FINE_LOCATION"))
+    }
+
+    @Test
     fun `permission without implied feature emits no uses-feature`() {
         val xml = render(permissions = listOf("android.permission.INTERNET"))
         assertFalse(xml.contains("uses-feature"))
@@ -154,5 +192,40 @@ class ManifestGeneratorTest {
         assertFalse(xml.contains("android.permission.FOREGROUND_SERVICE"))
         assertFalse(xml.contains("foregroundServiceType"))
         assertFalse(xml.contains("CAPABILITY_DETACHED_AUDIO"))
+    }
+
+    @Test
+    fun `tool-manager-provider capability declares the LightFileProvider marker`() {
+        val xml = render(capabilities = listOf("tool-manager-provider"))
+
+        assertTrue(
+            xml.contains("""android:name="com.thelightphone.toolmanager.LightFileProvider""""),
+            "expected LightFileProvider; got:\n$xml"
+        )
+        assertTrue(xml.contains("""android:authorities="${'$'}{applicationId}.lightfileprovider""""))
+        assertTrue(
+            xml.contains("""android:name="com.thelightphone.toolmanager.TOOL_MANAGER_PROVIDER""""),
+            "expected the tool manager provider marker; got:\n$xml"
+        )
+    }
+
+    @Test
+    fun `without the capability no tool manager provider is emitted`() {
+        val xml = render()
+
+        assertFalse(xml.contains("<provider"))
+        assertFalse(xml.contains("TOOL_MANAGER_PROVIDER"))
+    }
+
+    @Test
+    fun `largeHeap opt-in sets the largeHeap attribute on the application`() {
+        val xml = render(largeHeap = true)
+        assertTrue(xml.contains("""android:largeHeap="true""""))
+    }
+
+    @Test
+    fun `without largeHeap the manifest never mentions largeHeap`() {
+        val xml = render()
+        assertFalse(xml.contains("largeHeap"))
     }
 }

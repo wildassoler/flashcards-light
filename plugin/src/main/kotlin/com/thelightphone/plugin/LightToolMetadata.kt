@@ -23,6 +23,7 @@ data class LightToolMetadata(
     val capabilities: List<String> = emptyList(),
     val serverPackage: String,
     val orientation: String? = null,
+    val largeHeap: Boolean = false,
 ) {
     companion object {
         const val FILE_NAME: String = "lighttool.toml"
@@ -30,7 +31,7 @@ data class LightToolMetadata(
 
         /** Throws [LightToolMetadataException] if [file] is missing, malformed,
          * or violates the policy. The exception message is dev-facing. */
-        fun parse(file: File): LightToolMetadata {
+        fun parse(file: File, allowAltServerPackage: Boolean = false): LightToolMetadata {
             if (!file.isFile) {
                 throw LightToolMetadataException(
                     "missing $FILE_NAME at ${file.path} — declare your tool's metadata there"
@@ -60,8 +61,9 @@ data class LightToolMetadata(
                 versionName = validateVersionName(tool.tomlString("versionName")),
                 permissions = validatePermissions(tool.tomlStringList("permissions")),
                 capabilities = validateCapabilities(tool.tomlStringList("capabilities")),
-                serverPackage = validateServerPackage(tool.tomlString("serverPackage")),
+                serverPackage = validateServerPackage(tool.tomlString("serverPackage"), allowAltServerPackage),
                 orientation = validateOrientation(tool.tomlString("orientation")),
+                largeHeap = validateLargeHeap(tool.tomlBoolean(LightToolPolicy.LARGE_HEAP)),
             )
         }
 
@@ -99,11 +101,20 @@ data class LightToolMetadata(
             return v
         }
 
-        private fun validateServerPackage(value: String?): String {
+        private fun validateServerPackage(value: String?, allowAlt: Boolean): String {
             val v = value ?: throw LightToolMetadataException("tool.serverPackage is required")
             require(LightToolPolicy.TOOL_ID_PATTERN.matches(v)) {
                 "tool.serverPackage must be a lowercase dotted Java package identifier " +
                         "(e.g. com.lightos); got '$v'"
+            }
+            require(allowAlt || v == LightToolPolicy.LIGHTOS_SERVER_PACKAGE) {
+                "tool.serverPackage is '$v', but LightOS on a Light Phone is " +
+                        "${LightToolPolicy.LIGHTOS_SERVER_PACKAGE}. Light's release builds use this " +
+                        "value as-is, so the tool would not connect to LightOS on a phone. " +
+                        "Set serverPackage = \"${LightToolPolicy.LIGHTOS_SERVER_PACKAGE}\", or if you " +
+                        "are building for the LightOS emulator, opt in with " +
+                        "-DlightSdk.allowAltServerPackage=true " +
+                        "(e.g. ./gradlew :tool:installDebug -DlightSdk.allowAltServerPackage=true)"
             }
             return v
         }
@@ -116,6 +127,9 @@ data class LightToolMetadata(
             }
             return value
         }
+
+        /** Absent = false; a non-boolean value is rejected by [tomlBoolean]. */
+        private fun validateLargeHeap(value: Boolean?): Boolean = value ?: false
 
         private fun validatePermissions(values: List<String>?): List<String> {
             val list = values ?: emptyList()
@@ -167,11 +181,19 @@ class LightToolMetadataException(message: String) : RuntimeException(message)
 /** Policy values lifted into one object so tests and the validator share them. */
 object LightToolPolicy {
     val TOOL_ID_PATTERN: Regex = Regex("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$")
+
+    /** Second id segment of Light's own namespaces, under any first segment; the build server rejects them. */
+    val RESERVED_TOOL_ID_NAMESPACES: Set<String> = setOf("thelightphone", "lightphone")
+
+    fun isReservedToolId(id: String): Boolean = id.split(".").getOrNull(1) in RESERVED_TOOL_ID_NAMESPACES
     val VERSION_NAME_PATTERN: Regex =
         Regex("""^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$""")
     val TOOL_LABEL_PATTERN: Regex = Regex("^[^\\x00-\\x1f<>]{1,50}$")
     const val MAX_VERSION_CODE: Int = 2_100_000_000
+    const val LIGHTOS_SERVER_PACKAGE: String = "com.lightos"
     val ALLOWED_ORIENTATIONS: Set<String> = setOf("portrait")
+
+    const val LARGE_HEAP: String = "largeHeap"
 
     val ALLOWED_PERMISSIONS: Set<String> = setOf(
         "android.permission.INTERNET",
@@ -182,14 +204,34 @@ object LightToolPolicy {
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_CONTACTS",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.NFC",
     )
 
     const val DETACHED_AUDIO: String = "detached-audio"
+    const val AUDIO_DASH: String = "audio-dash"
+    const val TOOL_MANAGER_PROVIDER: String = "tool-manager-provider"
+    /**
+     * Allows a tool to access resources over plain HTTP, which Android blocks by
+     * default. Useful for tools that need to reach self-hosted servers on the
+     * user's own network.
+     */
+    const val CLEARTEXT_HTTP: String = "cleartext-http"
 
-    val ALLOWED_CAPABILITIES: Set<String> = setOf(DETACHED_AUDIO)
+    val ALLOWED_CAPABILITIES: Set<String> =
+        setOf(DETACHED_AUDIO, AUDIO_DASH, TOOL_MANAGER_PROVIDER, CLEARTEXT_HTTP)
+
+    /** media3 version the SDK is built against, generated from its catalog. */
+    val MEDIA3_VERSION: String = LightSdkPlugin.readResourceLines("media3-version.txt").single()
+
+    /** Dependencies a capability puts on the tool's classpath. */
+    val CAPABILITY_IMPLIED_DEPENDENCIES: Map<String, List<String>> = mapOf(
+        AUDIO_DASH to listOf("androidx.media3:media3-exoplayer-dash:$MEDIA3_VERSION"),
+    )
 
     /**
      * Permissions a capability contributes to the generated manifest. These are
@@ -212,6 +254,10 @@ object LightToolPolicy {
     fun capabilityMarker(capability: String): String =
         "com.thelightphone.sdk.CAPABILITY_" + capability.uppercase().replace('-', '_')
 
+    // <provider> <meta-data> key a LightFileProvider-compatible provider must
+    // declare (value "true") to be discoverable by the tool manager.
+    const val META_DATA_TOOL_MANAGER_PROVIDER: String = "com.thelightphone.toolmanager.TOOL_MANAGER_PROVIDER"
+
     /**
      * Permissions that Play Store / lint infer as also requiring a hardware
      * feature. Lacking a matching `<uses-feature>` element triggers
@@ -226,6 +272,16 @@ object LightToolPolicy {
         "android.permission.ACCESS_FINE_LOCATION" to listOf("android.hardware.location.gps"),
         "android.permission.ACCESS_COARSE_LOCATION" to listOf("android.hardware.location.network"),
         "android.permission.NFC" to listOf("android.hardware.nfc"),
+    )
+
+    /**
+     * Permissions that pull in another permission's `<uses-permission>` element.
+     * Android/Play Store lint (`CoarseFineLocation`) flags requesting FINE
+     * without also requesting COARSE, so we emit both any time a tool declares
+     * just FINE rather than making every tool remember to list both.
+     */
+    val PERMISSION_IMPLIED_PERMISSIONS: Map<String, List<String>> = mapOf(
+        "android.permission.ACCESS_FINE_LOCATION" to listOf("android.permission.ACCESS_COARSE_LOCATION"),
     )
 }
 
@@ -243,6 +299,12 @@ private fun org.tomlj.TomlTable.tomlLong(key: String): Long? = try {
     if (contains(key)) getLong(key) else null
 } catch (e: TomlInvalidTypeException) {
     throw LightToolMetadataException("tool.$key must be an integer")
+}
+
+private fun org.tomlj.TomlTable.tomlBoolean(key: String): Boolean? = try {
+    if (contains(key)) getBoolean(key) else null
+} catch (e: TomlInvalidTypeException) {
+    throw LightToolMetadataException("tool.$key must be a boolean")
 }
 
 private fun org.tomlj.TomlTable.tomlStringList(key: String): List<String>? {

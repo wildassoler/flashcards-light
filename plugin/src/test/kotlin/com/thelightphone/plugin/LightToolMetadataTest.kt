@@ -16,6 +16,22 @@ class LightToolMetadataTest {
     }
 
     @Test
+    fun `reserved namespaces match the second id segment under any first segment`() {
+        listOf(
+            "com.thelightphone", "com.thelightphone.app", "com.lightphone.app",
+            "org.lightphone.app", "io.thelightphone.a.b",
+        ).forEach {
+            assertEquals(true, LightToolPolicy.isReservedToolId(it), it)
+        }
+        listOf(
+            "com.lightphonex.app", "com.thelightphone2.app", "com.example.lightphone",
+            "com.example.thelightphone.app", "lightphone.app",
+        ).forEach {
+            assertEquals(false, LightToolPolicy.isReservedToolId(it), it)
+        }
+    }
+
+    @Test
     fun `happy path parses all fields`(@TempDir dir: Path) {
         val file = writeToml(dir, """
             [tool]
@@ -53,6 +69,45 @@ class LightToolMetadataTest {
         """.trimIndent())
 
         assertEquals(null, LightToolMetadata.parse(file).orientation)
+    }
+
+    @Test
+    fun `largeHeap defaults to false and parses when set`(@TempDir dir: Path) {
+        val off = writeToml(dir, """
+            [tool]
+            id = "com.example.mytool"
+            label = "My Tool"
+            versionCode = 1
+            versionName = "1.0.0"
+            serverPackage = "com.lightos"
+        """.trimIndent())
+        assertEquals(false, LightToolMetadata.parse(off).largeHeap)
+
+        val on = writeToml(dir, """
+            [tool]
+            id = "com.example.mytool"
+            label = "My Tool"
+            versionCode = 1
+            versionName = "1.0.0"
+            serverPackage = "com.lightos"
+            largeHeap = true
+        """.trimIndent())
+        assertEquals(true, LightToolMetadata.parse(on).largeHeap)
+    }
+
+    @Test
+    fun `non-boolean largeHeap fails`(@TempDir dir: Path) {
+        val file = writeToml(dir, """
+            [tool]
+            id = "com.example.mytool"
+            label = "My Tool"
+            versionCode = 1
+            versionName = "1.0.0"
+            serverPackage = "com.lightos"
+            largeHeap = "yes"
+        """.trimIndent())
+
+        assertThrows<LightToolMetadataException> { LightToolMetadata.parse(file) }
     }
 
     @Test
@@ -317,5 +372,46 @@ class LightToolMetadataTest {
         """.trimIndent())
         val ex = assertThrows<LightToolMetadataException> { LightToolMetadata.parse(file) }
         assert(ex.message!!.contains("serverPackage"))
+    }
+
+    private fun serverPackageToml(dir: Path, serverPackage: String): File = writeToml(dir, """
+        [tool]
+        id = "com.example.mytool"
+        label = "X"
+        versionCode = 1
+        versionName = "1.0.0"
+        serverPackage = "$serverPackage"
+    """.trimIndent())
+
+    @Test
+    fun `lightos serverPackage passes without the flag`(@TempDir dir: Path) {
+        val file = serverPackageToml(dir, "com.lightos")
+        assertEquals("com.lightos", LightToolMetadata.parse(file).serverPackage)
+    }
+
+    @Test
+    fun `emulator serverPackage fails without the flag`(@TempDir dir: Path) {
+        val file = serverPackageToml(dir, "com.thelightphone.sdk.emulator")
+        val ex = assertThrows<LightToolMetadataException> { LightToolMetadata.parse(file) }
+        assert(ex.message!!.contains("com.thelightphone.sdk.emulator")) { ex.message ?: "" }
+        assert(ex.message!!.contains("-DlightSdk.allowAltServerPackage=true")) { ex.message ?: "" }
+    }
+
+    @Test
+    fun `emulator serverPackage passes with the flag`(@TempDir dir: Path) {
+        val file = serverPackageToml(dir, "com.thelightphone.sdk.emulator")
+        val meta = LightToolMetadata.parse(file, allowAltServerPackage = true)
+        assertEquals("com.thelightphone.sdk.emulator", meta.serverPackage)
+    }
+
+    @Test
+    fun `malformed serverPackage fails with or without the flag`(@TempDir dir: Path) {
+        val file = serverPackageToml(dir, "Com.LightOS")
+        for (allow in listOf(false, true)) {
+            val ex = assertThrows<LightToolMetadataException> {
+                LightToolMetadata.parse(file, allowAltServerPackage = allow)
+            }
+            assert(ex.message!!.contains("lowercase dotted")) { ex.message ?: "" }
+        }
     }
 }
